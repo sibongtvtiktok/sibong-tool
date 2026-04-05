@@ -41,8 +41,9 @@ if st.button("스크립트 따오기! 🚀"):
             if not video_id:
                 st.error("올바른 유튜브 URL이 아닙니다. 다시 확인해주세요.")
             else:
-                # 2. 자막 추출 (🔥내가 멍청하게 옛날 거 줬던 부분! 진짜 최신 문법으로 수정 완료🔥)
-                transcript = YouTubeTranscriptApi().fetch(video_id, languages=['ko', 'en'])
+                # 2. 자막 추출 및 데이터 형식 변환 (🔥여기가 수정된 핵심 로직🔥)
+                fetched_data = YouTubeTranscriptApi().fetch(video_id, languages=['ko', 'en'])
+                transcript = fetched_data.to_raw_data() # 객체를 딕셔너리로 강제 변환
                 
                 # 3. 텍스트 예쁘게 조립하기
                 result_text = ""
@@ -50,7 +51,7 @@ if st.button("스크립트 따오기! 🚀"):
                     result_text += f"영상 주소: {url_input}\n\n"
                     
                 for item in transcript:
-                    text = item['text']
+                    text = item['text'] # 이제 여기서 에러 안 남
                     if include_timestamp:
                         start_time = int(item['start'])
                         minutes = start_time // 60
@@ -64,5 +65,4 @@ if st.button("스크립트 따오기! 🚀"):
                 st.text_area("추출된 스크립트", result_text, height=500)
                 
         except Exception as e:
-            # 에러 발생 시 빨간 창 띄우기
             st.error(f"오류 발생: {e}\n\n(참고: 자막 기능이 아예 막힌 영상이거나, 한국어/영어 자막이 없을 수 있습니다.)")
