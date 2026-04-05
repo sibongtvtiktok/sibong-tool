@@ -1,6 +1,8 @@
 import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
+import urllib.request
+import json
 
 # --- 페이지 기본 설정 ---
 st.set_page_config(page_title="시봉 레코즈 전용 스크립트 추출기 v6", layout="wide")
@@ -8,7 +10,7 @@ st.set_page_config(page_title="시봉 레코즈 전용 스크립트 추출기 v6
 st.title("🎬 시봉 레코즈 전용 스크립트 추출기 v6")
 
 # --- 입력 창 ---
-url_input = st.text_input("유튜브 URL을 입력하세요:", "https://www.youtube.com/watch?v=TyElNayCFQ4")
+url_input = st.text_input("유튜브 URL을 입력하세요:", value="", placeholder="https://www.youtube.com/watch?v=...")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -24,7 +26,7 @@ if st.button("스크립트 따오기! 🚀"):
         st.warning("URL을 입력해주세요.")
     else:
         try:
-            # 1. 유튜브 URL에서 비디오 ID만 깔끔하게 빼내기
+            # 1. 유튜브 URL에서 비디오 ID 빼내기
             parsed_url = urlparse(url_input)
             video_id = ""
             
@@ -41,17 +43,28 @@ if st.button("스크립트 따오기! 🚀"):
             if not video_id:
                 st.error("올바른 유튜브 URL이 아닙니다. 다시 확인해주세요.")
             else:
-                # 2. 자막 추출 및 데이터 형식 변환 (🔥여기가 수정된 핵심 로직🔥)
-                fetched_data = YouTubeTranscriptApi().fetch(video_id, languages=['ko', 'en'])
-                transcript = fetched_data.to_raw_data() # 객체를 딕셔너리로 강제 변환
+                # 2. 영상 제목 긁어오기 (🔥새로 추가된 부분🔥)
+                video_title = "제목을 불러올 수 없습니다"
+                try:
+                    oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+                    with urllib.request.urlopen(oembed_url) as response:
+                        data = json.loads(response.read().decode())
+                        video_title = data.get('title', video_title)
+                except Exception:
+                    pass # 제목 못 가져와도 자막은 뽑아야 하니까 그냥 넘어감
                 
-                # 3. 텍스트 예쁘게 조립하기
+                # 3. 자막 추출
+                fetched_data = YouTubeTranscriptApi().fetch(video_id, languages=['ko', 'en'])
+                transcript = fetched_data.to_raw_data()
+                
+                # 4. 텍스트 예쁘게 조립하기 (제목 포함)
                 result_text = ""
                 if include_title_url:
+                    result_text += f"영상 제목: {video_title}\n"
                     result_text += f"영상 주소: {url_input}\n\n"
                     
                 for item in transcript:
-                    text = item['text'] # 이제 여기서 에러 안 남
+                    text = item['text']
                     if include_timestamp:
                         start_time = int(item['start'])
                         minutes = start_time // 60
@@ -60,7 +73,7 @@ if st.button("스크립트 따오기! 🚀"):
                     else:
                         result_text += f"{text}\n"
                         
-                # 4. 화면에 출력
+                # 5. 화면에 출력
                 st.success("스크립트 추출 완료! 🎉")
                 st.text_area("추출된 스크립트", result_text, height=500)
                 
